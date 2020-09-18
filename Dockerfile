@@ -1,6 +1,6 @@
 FROM docker.io/alpine:latest AS downloader
 
-ENV RSSBOT_VERSION aaaa
+ENV RSSBOT_VERSION 
 
 RUN apk add --no-cache curl && \
     mkdir /rssbot && \
