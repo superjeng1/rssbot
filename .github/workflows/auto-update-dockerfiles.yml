@@ -33,7 +33,7 @@ jobs:
       
       - name: Check Latest docker.io/alpine:latest sha256 checksum
         run: |
-          rssbotVersion=curl -sL https://api.github.com/repos/iovxw/rssbot/releases/latest | jq -r ".tag_name"
+          rssbotVersion=$(curl -sL https://api.github.com/repos/iovxw/rssbot/releases/latest | jq -r ".tag_name")
           perl -i -pe 's/^(ENV) RSSBOT_VERSION.+/\1 RSSBOT_VERSION '"$rssbotVersion"'/gm' Dockerfile
           git add -u
           git diff-index --quiet HEAD && echo "No update available for now. Exiting..." || { git commit -S -m "Updated rssbot version to $rssbotVersion"; }
