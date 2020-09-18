@@ -1,0 +1,59 @@
+name: Build and Push to testing or releases
+
+on:
+  push:
+    # Publish `main` as Docker `testing*` images.
+    branches:
+      - main
+
+    # Publish `v1.2.3` tags as releases.
+    tags:
+      - v*
+
+env:
+  IMAGE_NAME: rssbot
+
+jobs:
+  # Push image to GitHub Packages.
+  # See also https://docs.docker.com/docker-hub/builds/
+  build-and-push:
+    # Ensure test job passes before pushing image.
+    #needs: test
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: |
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+
+          # Strip "v" prefix from tag name
+          # [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          # Use Docker `testing` tag convention
+          [ "$VERSION" == "main" ] && VERSION=testing
+          
+          echo "::set-env name=VERSION::$VERSION"
+          docker build . --file Dockerfile --tag $IMAGE_NAME:$VERSION
+
+      - name: Log into GitHub Container Registry
+        if: ${{ github.actor == 'superjeng1' || github.actor == 'superjeng1-bot' }}
+        run: ( [ '${{ github.actor }}' = 'superjeng1' ] && echo "${{ secrets.CR_PAT }}" || echo "${{ secrets.BOT_PAT }}" ) | docker login https://ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image to GitHub Container Registry
+        if: ${{ github.actor == 'superjeng1' || github.actor == 'superjeng1-bot' }}
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+          
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+
+          docker tag $IMAGE_NAME:$VERSION $IMAGE_ID:$VERSION
+          [ "$VERSION" != "testing" ] && { docker tag $IMAGE_NAME:$VERSION $IMAGE_ID:latest; }
+          docker push $IMAGE_ID
